@@ -1,13 +1,17 @@
-# Base image
+# Use the official MikoPBX image
 FROM ghcr.io/mikopbx/mikopbx-x86-64:latest
 
-# Create dummy /dev/console to silence entrypoint spam
-RUN mkdir -p /dev && \
-    ( [ -e /dev/console ] || mknod -m 600 /dev/console c 1 3 ) && \
-    ln -sf /dev/null /dev/console
+# Install tini (a minimal init system that handles PID 1 correctly)
+RUN apt-get update && apt-get install -y tini && apt-get clean
 
-# Redirect entrypoint logs properly so it doesn't try to open console
-ENTRYPOINT ["/bin/sh", "-c", "exec /sbin/docker-entrypoint >/proc/1/fd/1 2>/proc/1/fd/2"]
+# Prevent console spam by redirecting /dev/console
+RUN mkdir -p /dev && ln -sf /dev/null /dev/console
 
-# MikoPBX runs its web UI on port 80
-EXPOSE 80
+# Expose web and SIP/VoIP ports
+EXPOSE 80 443 5060/udp 5061/tcp 4569/udp 18000-18100/udp
+
+# Use tini to manage processes safely
+ENTRYPOINT ["/usr/bin/tini", "--", "/sbin/docker-entrypoint"]
+
+# Default command
+CMD []
