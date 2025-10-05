@@ -1,9 +1,10 @@
-# Start from the official MikoPBX image
 FROM ghcr.io/mikopbx/mikopbx-x86-64:latest
 
-# Option A: Patch their entrypoint so logs go to stdout (clean)
-RUN sed -i 's#/dev/console#/proc/1/fd/1#g' /sbin/docker-entrypoint
+# Fix /dev/console error (safe workaround)
+RUN ln -sf /dev/null /dev/console
 
-# Option B: Completely bypass their entrypoint and run PBX manually
-# (uncomment this CMD if Option A doesn’t fix it)
-# CMD ["/bin/sh", "-c", "/etc/init.d/mikopbx start && tail -f /dev/null"]
+# Default port for MikoPBX web UI
+EXPOSE 80
+
+# Keep the original entrypoint from the base image
+CMD ["/entrypoint.sh"]
