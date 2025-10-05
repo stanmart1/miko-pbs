@@ -10,40 +10,34 @@ if [ ! -e /dev/console ]; then
 fi
 
 # === Ensure /storage exists and is writable ===
-if [ ! -d /storage ]; then
-    echo "Creating /storage..."
-    mkdir -p /storage
-fi
-chmod -R 777 /storage || true
+mkdir -p /storage/mikopbx/persistence
+chown -R www:www /storage/mikopbx
+chmod -R 770 /storage/mikopbx
 
-# === Database persistence setup ===
-DB_STORAGE="/storage/usbdisk1/mikopbx/persistence"
-ORIG_DB="/offload/rootfs/usr/www/src/Common/Models/astdb.sqlite3"
+# === Redirect SQLite databases to /storage ===
+for dbfile in /offload/rootfs/usr/www/src/Common/Models/*.sqlite3; do
+    if [ -f "$dbfile" ]; then
+        echo "Moving $dbfile to /storage..."
+        mv "$dbfile" /storage/mikopbx/persistence/ || true
+    fi
+done
 
-mkdir -p "$DB_STORAGE"
-chmod -R 770 "$DB_STORAGE"
-chown -R www:www "$DB_STORAGE"
+# Symlink the databases back to the original path
+for dbfile in /storage/mikopbx/persistence/*.sqlite3; do
+    ln -sf "$dbfile" "/offload/rootfs/usr/www/src/Common/Models/$(basename $dbfile)"
+done
 
-# Move original database to storage if not already there
-if [ ! -f "$DB_STORAGE/astdb.sqlite3" ] && [ -f "$ORIG_DB" ]; then
-    echo "Moving database to writable storage..."
-    mv "$ORIG_DB" "$DB_STORAGE/astdb.sqlite3"
-fi
+# === Overlay /offload/www to make it writable (optional) ===
+mkdir -p /storage/www-overlay /storage/www-work
+mount -t overlay overlay \
+    -o lowerdir=/offload/rootfs/usr/www,upperdir=/storage/www-overlay,workdir=/storage/www-work \
+    /offload/rootfs/usr/www || true
 
-# Symlink database in app path to storage
-if [ ! -L "$ORIG_DB" ]; then
-    echo "Linking database from storage..."
-    rm -f "$ORIG_DB"
-    ln -s "$DB_STORAGE/astdb.sqlite3" "$ORIG_DB"
-fi
-
-# === Ensure storage directories are writable by MikoPBX user ===
-chown -R www:www /storage/usbdisk1/mikopbx
-chmod -R 770 /storage/usbdisk1/mikopbx
-
-# === Log mount status for verification ===
-echo "Current mount points related to /offload or /storage:"
+# Log for verification
+echo "Mount points and storage permissions:"
 mount | grep -E "offload|storage" || true
+ls -ld /storage/mikopbx /storage/mikopbx/persistence
+ls -l /storage/mikopbx/persistence
 
-# === Hand over to original MikoPBX entrypoint ===
+# Hand over control to original entrypoint
 exec /sbin/docker-entrypoint "$@"
