@@ -1,10 +1,13 @@
+# Base image
 FROM ghcr.io/mikopbx/mikopbx-x86-64:latest
 
-# --- Fix /dev/console issue safely ---
-# Create a fake console so the entrypoint stops throwing errors
+# Create dummy /dev/console to silence entrypoint spam
 RUN mkdir -p /dev && \
-    if [ ! -e /dev/console ]; then mknod -m 600 /dev/console c 1 3 || true; fi
+    ( [ -e /dev/console ] || mknod -m 600 /dev/console c 1 3 ) && \
+    ln -sf /dev/null /dev/console
 
-# --- Ensure container starts normally ---
-# Run entrypoint through sh and redirect console logs properly
+# Redirect entrypoint logs properly so it doesn't try to open console
 ENTRYPOINT ["/bin/sh", "-c", "exec /sbin/docker-entrypoint >/proc/1/fd/1 2>/proc/1/fd/2"]
+
+# MikoPBX runs its web UI on port 80
+EXPOSE 80
