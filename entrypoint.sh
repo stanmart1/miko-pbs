@@ -9,12 +9,18 @@ fi
 # Ensure storage directory exists and is writable
 echo "Fixing permissions for /storage..."
 mkdir -p /storage
-chmod -R 777 /storage
+chmod -R 777 /storage || true
 
-# For some builds, the database might actually be under /offload/rootfs/storage
+# Fix permission for overlay rootfs
 if [ -d /offload/rootfs/storage ]; then
     echo "Fixing permissions for /offload/rootfs/storage..."
-    chmod -R 777 /offload/rootfs/storage
+    chmod -R 777 /offload/rootfs/storage || true
+fi
+
+# Fix permission for the runtime web directory
+if [ -d /offload/rootfs/usr/www ]; then
+    echo "Fixing permissions for /offload/rootfs/usr/www..."
+    chmod -R 777 /offload/rootfs/usr/www || true
 fi
 
 # Continue to default entrypoint
