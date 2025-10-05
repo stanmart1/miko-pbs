@@ -1,17 +1,21 @@
 #!/bin/sh
-# Ensure /dev/console exists to prevent spam errors
+
+# Fix /dev/console
 if [ ! -e /dev/console ]; then
     echo "Redirecting missing /dev/console..."
     ln -sf /dev/null /dev/console
 fi
 
-# Ensure /storage exists and is writable
-if [ ! -d /storage ]; then
-    mkdir -p /storage
+# Ensure storage directory exists and is writable
+echo "Fixing permissions for /storage..."
+mkdir -p /storage
+chmod -R 777 /storage
+
+# For some builds, the database might actually be under /offload/rootfs/storage
+if [ -d /offload/rootfs/storage ]; then
+    echo "Fixing permissions for /offload/rootfs/storage..."
+    chmod -R 777 /offload/rootfs/storage
 fi
 
-echo "Fixing permissions for /storage..."
-chmod -R 777 /storage || true
-
-# Hand over control to the original entrypoint
+# Continue to default entrypoint
 exec /sbin/docker-entrypoint "$@"
