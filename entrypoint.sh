@@ -22,7 +22,7 @@ if mount | grep "on /offload " | grep -q "(ro,"; then
     mount -o remount,rw /offload 2>/dev/null || true
 fi
 
-# If still not writable, apply overlay for writable layer
+# === Apply overlay for /offload/rootfs/usr/www if needed ===
 if [ ! -w /offload/rootfs/usr/www ]; then
     echo "Applying overlay to /offload/rootfs/usr/www..."
     mkdir -p /storage/www-overlay /storage/www-work
@@ -31,12 +31,16 @@ if [ ! -w /offload/rootfs/usr/www ]; then
         /offload/rootfs/usr/www || true
 fi
 
-# === Ensure database directory is writable ===
-if [ -d /offload/rootfs/usr/www/db ]; then
-    chmod -R 777 /offload/rootfs/usr/www/db || true
+# === Ensure MikoPBX storage directories are writable by www user ===
+if [ -d /storage/usbdisk1/mikopbx/persistence ]; then
+    echo "Fixing ownership and permissions for persistence..."
+    chown -R www:www /storage/usbdisk1/mikopbx
+    chmod -R 770 /storage/usbdisk1/mikopbx
 else
-    mkdir -p /offload/rootfs/usr/www/db
-    chmod -R 777 /offload/rootfs/usr/www/db
+    echo "Creating persistence directory..."
+    mkdir -p /storage/usbdisk1/mikopbx/persistence
+    chown -R www:www /storage/usbdisk1/mikopbx
+    chmod -R 770 /storage/usbdisk1/mikopbx
 fi
 
 # === Log mount status for verification ===
