@@ -1,22 +1,17 @@
 # Use the official MikoPBX image
 FROM ghcr.io/mikopbx/mikopbx-x86-64:latest
 
-# Fix /dev/console issue safely
+# Fix /dev/console issue
 RUN mkdir -p /dev && ln -sf /dev/null /dev/console || true
 
-# Ensure /storage exists and has proper permissions
-RUN mkdir -p /storage && \
-    chown -R 1000:1000 /storage && \
-    chmod -R 777 /storage
-
-# Expose Web UI and VoIP ports
-EXPOSE 80 443 5060/udp 5061/tcp 4569/udp 18000-18100/udp
-
-# Add a custom entrypoint wrapper
+# Copy custom entrypoint
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Run your wrapper first
-ENTRYPOINT ["/entrypoint.sh"]
+# Ensure storage directory exists and is writable
+RUN mkdir -p /storage && chmod -R 777 /storage || true
 
+EXPOSE 80 443 5060/udp 5061/tcp 4569/udp 18000-18100/udp
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD []
