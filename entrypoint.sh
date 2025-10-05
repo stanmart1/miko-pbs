@@ -16,32 +16,30 @@ if [ ! -d /storage ]; then
 fi
 chmod -R 777 /storage || true
 
-# === Handle read-only /offload (from image layer) ===
-if mount | grep "on /offload " | grep -q "(ro,"; then
-    echo "Remounting /offload as read/write..."
-    mount -o remount,rw /offload 2>/dev/null || true
+# === Database persistence setup ===
+DB_STORAGE="/storage/usbdisk1/mikopbx/persistence"
+ORIG_DB="/offload/rootfs/usr/www/src/Common/Models/astdb.sqlite3"
+
+mkdir -p "$DB_STORAGE"
+chmod -R 770 "$DB_STORAGE"
+chown -R www:www "$DB_STORAGE"
+
+# Move original database to storage if not already there
+if [ ! -f "$DB_STORAGE/astdb.sqlite3" ] && [ -f "$ORIG_DB" ]; then
+    echo "Moving database to writable storage..."
+    mv "$ORIG_DB" "$DB_STORAGE/astdb.sqlite3"
 fi
 
-# === Apply overlay for /offload/rootfs/usr/www if needed ===
-if [ ! -w /offload/rootfs/usr/www ]; then
-    echo "Applying overlay to /offload/rootfs/usr/www..."
-    mkdir -p /storage/www-overlay /storage/www-work
-    mount -t overlay overlay \
-        -o lowerdir=/offload/rootfs/usr/www,upperdir=/storage/www-overlay,workdir=/storage/www-work \
-        /offload/rootfs/usr/www || true
+# Symlink database in app path to storage
+if [ ! -L "$ORIG_DB" ]; then
+    echo "Linking database from storage..."
+    rm -f "$ORIG_DB"
+    ln -s "$DB_STORAGE/astdb.sqlite3" "$ORIG_DB"
 fi
 
-# === Ensure MikoPBX storage directories are writable by www user ===
-if [ -d /storage/usbdisk1/mikopbx/persistence ]; then
-    echo "Fixing ownership and permissions for persistence..."
-    chown -R www:www /storage/usbdisk1/mikopbx
-    chmod -R 770 /storage/usbdisk1/mikopbx
-else
-    echo "Creating persistence directory..."
-    mkdir -p /storage/usbdisk1/mikopbx/persistence
-    chown -R www:www /storage/usbdisk1/mikopbx
-    chmod -R 770 /storage/usbdisk1/mikopbx
-fi
+# === Ensure storage directories are writable by MikoPBX user ===
+chown -R www:www /storage/usbdisk1/mikopbx
+chmod -R 770 /storage/usbdisk1/mikopbx
 
 # === Log mount status for verification ===
 echo "Current mount points related to /offload or /storage:"
