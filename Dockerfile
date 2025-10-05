@@ -1,10 +1,13 @@
 FROM ghcr.io/mikopbx/mikopbx-x86-64:latest
 
-# Fix /dev/console error (safe workaround)
-RUN ln -sf /dev/null /dev/console
+# Create a dummy console device so entrypoint logging works
+RUN mkdir -p /dev && mknod -m 600 /dev/console c 1 3 || true
 
-# Default port for MikoPBX web UI
+# Some shells abort on console errors; redirect them instead
+ENV CONSOLE_DEVICE=/dev/console
+
 EXPOSE 80
 
-# Keep the original entrypoint from the base image
-CMD ["/entrypoint.sh"]
+# Run the image's native entrypoint
+ENTRYPOINT ["/sbin/docker-entrypoint"]
+CMD []
