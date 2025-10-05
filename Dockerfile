@@ -1,13 +1,7 @@
 FROM ghcr.io/mikopbx/mikopbx-x86-64:latest
 
-# Create a dummy console device so entrypoint logging works
+# Create a dummy /dev/console to prevent startup spam
 RUN mkdir -p /dev && mknod -m 600 /dev/console c 1 3 || true
 
-# Some shells abort on console errors; redirect them instead
-ENV CONSOLE_DEVICE=/dev/console
-
-EXPOSE 80
-
-# Run the image's native entrypoint
-ENTRYPOINT ["/sbin/docker-entrypoint"]
-CMD []
+# Start the PBX, silencing the console-open errors
+CMD /sbin/docker-entrypoint 2>&1 | grep -v "can't open /dev/console"
