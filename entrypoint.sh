@@ -1,27 +1,47 @@
 #!/bin/sh
+set -e
 
-# Fix /dev/console
+echo "Starting MikoPBX custom entrypoint..."
+
+# === Fix /dev/console issue ===
 if [ ! -e /dev/console ]; then
     echo "Redirecting missing /dev/console..."
     ln -sf /dev/null /dev/console
 fi
 
-# Ensure storage directory exists and is writable
-echo "Fixing permissions for /storage..."
-mkdir -p /storage
+# === Ensure /storage exists and is writable ===
+if [ ! -d /storage ]; then
+    echo "Creating /storage..."
+    mkdir -p /storage
+fi
 chmod -R 777 /storage || true
 
-# Fix permission for overlay rootfs
-if [ -d /offload/rootfs/storage ]; then
-    echo "Fixing permissions for /offload/rootfs/storage..."
-    chmod -R 777 /offload/rootfs/storage || true
+# === Handle read-only /offload (from image layer) ===
+if mount | grep "on /offload " | grep -q "(ro,"; then
+    echo "Remounting /offload as read/write..."
+    mount -o remount,rw /offload 2>/dev/null || true
 fi
 
-# Fix permission for the runtime web directory
-if [ -d /offload/rootfs/usr/www ]; then
-    echo "Fixing permissions for /offload/rootfs/usr/www..."
-    chmod -R 777 /offload/rootfs/usr/www || true
+# If still not writable, apply overlay for writable layer
+if [ ! -w /offload/rootfs/usr/www ]; then
+    echo "Applying overlay to /offload/rootfs/usr/www..."
+    mkdir -p /storage/www-overlay /storage/www-work
+    mount -t overlay overlay \
+        -o lowerdir=/offload/rootfs/usr/www,upperdir=/storage/www-overlay,workdir=/storage/www-work \
+        /offload/rootfs/usr/www || true
 fi
 
-# Continue to default entrypoint
+# === Ensure database directory is writable ===
+if [ -d /offload/rootfs/usr/www/db ]; then
+    chmod -R 777 /offload/rootfs/usr/www/db || true
+else
+    mkdir -p /offload/rootfs/usr/www/db
+    chmod -R 777 /offload/rootfs/usr/www/db
+fi
+
+# === Log mount status for verification ===
+echo "Current mount points related to /offload or /storage:"
+mount | grep -E "offload|storage" || true
+
+# === Hand over to original MikoPBX entrypoint ===
 exec /sbin/docker-entrypoint "$@"
